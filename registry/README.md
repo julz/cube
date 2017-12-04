@@ -13,6 +13,7 @@ Works the same as today: the registry always combines the droplet layer with the
 
 ~~~~
 # start the registry with the current rootfs
+# (a nice way to do this is to deploy `rootfs-release` and `cube-release` on the same bosh host and point one to the other)
 cube registry --rootfs /path/to/rootfs.tar
 
 # .. add <yourip>:8080 to insecure-registry-list in your docker daemon
