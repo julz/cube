@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,6 +11,9 @@ import (
 )
 
 func main() {
+	selfIp, err := getIP()
+	exitWithError(err)
+
 	app := cli.NewApp()
 	app.Name = "cube"
 	app.Usage = "Cube - the CF experience, on any scheduler"
@@ -60,8 +64,21 @@ func main() {
 					Name: "skipSslValidation",
 				},
 				cli.StringFlag{
+					Name:  "externalCubeAddress",
+					Value: fmt.Sprintf("%s:8080", selfIp),
+					Usage: "The external cube address which will be used by kubernetes to pull images. <host>:<port>",
+				},
+				cli.StringFlag{
 					Name:  "config",
 					Usage: "Path to cube config file",
+				},
+				cli.StringFlag{
+					Name:  "namespace",
+					Usage: "name of the kubernetes cluster used for app staging",
+				},
+				cli.StringFlag{
+					Name:  "kubeEndpoint",
+					Usage: "endpoint of the kubernetes cluster used for app staging",
 				},
 			},
 			Action: syncCmd,
@@ -93,8 +110,35 @@ func main() {
 				cli.BoolFlag{
 					Name: "skipSslValidation",
 				},
+				cli.StringFlag{
+					Name:  "namespace",
+					Usage: "name of the kubernetes cluster used for app staging",
+				},
 			},
 			Action: stagingCmd,
+		},
+		{
+			Name:  "route",
+			Usage: "emit routes to cc",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "kube-config",
+					Value: filepath.Join(os.Getenv("HOME"), ".kube", "config"),
+				},
+				cli.StringFlag{
+					Name:  "namespace",
+					Usage: "name of the kubernetes cluster used for app staging",
+				},
+				cli.StringFlag{
+					Name:  "natsPass",
+					Usage: "Password for NATS messaging system used to communicate with the gorouter",
+				},
+				cli.StringFlag{
+					Name:  "natsIP",
+					Usage: "IP of NATS messaging system used to communicate with the gorouter",
+				},
+			},
+			Action: routeEmitterCmd,
 		},
 	}
 

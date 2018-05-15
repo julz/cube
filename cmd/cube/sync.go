@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -62,13 +64,20 @@ func syncCmd(c *cli.Context) {
 	log := lager.NewLogger("sync")
 	log.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 
+	kubeNamespace := conf.Properties.KubeNamespace
+	kubeEndpoint := conf.Properties.KubeEndpoint
+
+	ingressManager := k8s.NewIngressManager(clientset, kubeEndpoint)
+	desirer := k8s.NewDesirer(clientset, kubeNamespace, ingressManager)
+
 	converger := sink.Converger{
 		Converter:   sink.ConvertFunc(sink.Convert),
-		Desirer:     &k8s.Desirer{Client: clientset},
+		Desirer:     desirer,
 		CfClient:    cfClient,
 		Client:      client,
 		Logger:      log,
-		RegistryUrl: "http://127.0.0.1:8080",
+		RegistryUrl: "http://127.0.0.1:8080",         //for internal use
+		RegistryIP:  conf.Properties.ExternalAddress, //for external use (kube)
 	}
 
 	cancel := make(chan struct{})
@@ -116,6 +125,8 @@ func setConfigFromCLI(c *cli.Context) *cube.SyncConfig {
 	return &cube.SyncConfig{
 		Properties: cube.SyncProperties{
 			KubeConfig:         c.String("kubeconfig"),
+			KubeNamespace:      c.String("namespace"),
+			KubeEndpoint:       c.String("kubeEndpoint"),
 			RegistryEndpoint:   "http://127.0.0.1:8080",
 			Backend:            c.String("backend"),
 			CcApi:              c.String("ccApi"),
@@ -123,8 +134,46 @@ func setConfigFromCLI(c *cli.Context) *cube.SyncConfig {
 			CfPassword:         c.String("adminPass"),
 			CcUser:             c.String("ccUser"),
 			CcPassword:         c.String("ccPass"),
+			ExternalAddress:    c.String("externalCubeAddress"),
 			SkipSslValidation:  c.Bool("skipSslValidation"),
 			InsecureSkipVerify: true,
 		},
 	}
+}
+
+func getIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("couldn't get IP address")
 }

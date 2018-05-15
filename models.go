@@ -1,6 +1,7 @@
 package cube
 
 import (
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/bbs/models"
@@ -40,6 +41,8 @@ type SyncConfig struct {
 
 type SyncProperties struct {
 	KubeConfig         string `yaml:"kube_config"`
+	KubeNamespace      string `yaml:"kube_namespace"`
+	KubeEndpoint       string `yaml:"kube_endpoint"`
 	RegistryEndpoint   string `yaml:"registry_endpoint"`
 	CcApi              string `yaml:"api_endpoint"`
 	Backend            string `yaml:"backend"`
@@ -47,6 +50,7 @@ type SyncProperties struct {
 	CfPassword         string `yaml:"cf_password"`
 	CcUser             string `yaml:"cc_internal_user"`
 	CcPassword         string `yaml:"cc_internal_password"`
+	ExternalAddress    string `yaml:"external_cube_address"`
 	SkipSslValidation  bool   `yaml:"skip_ssl_validation"`
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
 }
@@ -68,4 +72,14 @@ type BackendConfig struct {
 	ApiAddress        string
 	CubeAddress       string
 	SkipSslValidation bool
+}
+
+//go:generate counterfeiter . Extractor
+type Extractor interface {
+	Extract(src, targetDir string) error
+}
+
+func GetInternalServiceName(appName string) string {
+	//Prefix service as the appName could start with numerical characters, which is not allowed
+	return fmt.Sprintf("cf-%s", appName)
 }
