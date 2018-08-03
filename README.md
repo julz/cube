@@ -1,3 +1,5 @@
+# This repo is now moved to [cloudfoundry-incubator](https://github.com/cloudfoundry-incubator/eirini)
+
 # What this?
 
 Cube is a Kubernetes backend for Cloud Foundry. It syncs CF apps to a kube
